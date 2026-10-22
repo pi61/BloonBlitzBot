@@ -15,7 +15,7 @@ pydirectinput.PAUSE = 0
 
 ################## OPTIONS ##############################
 # General options
-PRINT_FRAME_TIME = False    # Print the delay between subsequent processing ticks (frames)
+PRINT_FRAME_TIME = True    # Print the delay between subsequent processing ticks (frames)
 
 # Collection behavior
 COLLECT_BANANAS = False     # Make the bot attempt to collect bananas
@@ -24,9 +24,9 @@ COLLECT_GOLD = True         # Make the bot attempt to collect gold
 
 # Movement behavior
 ENABLE_MOVEMENT = True      # Turn this off to disable movement altogether. Useful for testing.
-AVOID_BLOONS = False        # Make the bot attempt to avoid getting hit by red & blue bloons.
+AVOID_BLOONS = True         # Make the bot attempt to avoid getting hit by red & blue bloons.
                             # It may detect unrelated obstacles as bloons
-DODGE_BULLETS = False       # Make the bot attempt to avoid purple attacks from the bosses
+DODGE_BULLETS = True       # Make the bot attempt to avoid purple attacks from the bosses
 MAINTAIN_MOVEMENT = True    # Make the bot keep moving in the last moved direction instead of 
                             # standing still
 
@@ -34,7 +34,7 @@ MAINTAIN_MOVEMENT = True    # Make the bot keep moving in the last moved directi
 USE_OCR = True # Disabling this cause the bot to choose random upgrades, 
                 # and skips initializing EasyOCR which massively improve initialization speed. 
                 # Useful for testing.
-UPGRADE_FILE = 'boss_upgrades.txt' # List of upgrades sorted by priority. Each upgrade should be on a separate line.
+UPGRADE_FILE = 'upgrades.txt' # List of upgrades sorted by priority. Each upgrade should be on a separate line.
 
 
 ##################  POSITIONS  ###########################
@@ -161,6 +161,7 @@ player_hp_sprite = cv2.imread('sprites/player_hp_scaled.png')
 sct = mss.MSS()
 stop_event = threading.Event()
 running = True
+starting = False
 latest_frame = None
 objects = []
 heart_location = None
@@ -168,6 +169,7 @@ last_heart_update = 0
 frame_lock = threading.Lock()
 quit_hotkey = None
 pause_hotkey = None
+start_hotkey = None
 listener = None
 pausing = False
 upgrades = []
@@ -231,7 +233,7 @@ def init():
             upgrades.append(cur)
 
     #init hotkey functions
-    global pause_hotkey, quit_hotkey, listener
+    global pause_hotkey, quit_hotkey, start_hotkey, listener
     quit_hotkey = keyboard.HotKey(
         keyboard.HotKey.parse('<ctrl>+q'),
         quit_program
@@ -241,6 +243,12 @@ def init():
         keyboard.HotKey.parse('<ctrl>+p'),
         pause_bot
     )
+
+    start_hotkey = keyboard.HotKey(
+        keyboard.HotKey.parse('<ctrl>+w'),
+        start_bot
+    )
+    
     listener = keyboard.Listener(
         on_press=on_press,
         on_release=on_release
@@ -255,18 +263,25 @@ def quit_program():
 def pause_bot():
     global pausing
     if (pausing):
-        print("Unpaused!")
+        print("Unpaused")
     else:
-        print("Paused!")
+        print("Paused")
     pausing = not pausing
+
+def start_bot():
+    global starting
+    print("Starting bot")
+    starting = True 
 
 def on_press(key):
     quit_hotkey.press(listener.canonical(key))
     pause_hotkey.press(listener.canonical(key))
+    start_hotkey.press(listener.canonical(key))
 
 def on_release(key):
     quit_hotkey.release(listener.canonical(key))
     pause_hotkey.release(listener.canonical(key))
+    start_hotkey.release(listener.canonical(key))
 
 def stopMovement():
     pydirectinput.keyUp('a')
@@ -337,7 +352,9 @@ def moveToDirection(best_direction):
         pydirectinput.keyDown(char)
 
 def sq_distance(first, second):
-    return (first[0] - second[0])**2 + (first[1] - second[1])**2
+    x1,y1 = first
+    x2,y2 = second
+    return (x1 - x2)**2 + (y1 - y2)**2
 
 def getDodgePosition(heart_center, bullets):
     closest = None
@@ -356,6 +373,11 @@ def getDodgePosition(heart_center, bullets):
     v1 = np.array(closest) - heart_center
     v2 = np.array(secondClosest) - heart_center 
     final_position = heart_center - v1 - v2 
+    x, y = final_position
+    x = round(x)
+    y = round(y)
+    print(x, y)
+    objects.append([x-10,y-10, x+10,y+10, (255,255,255), "dodge"])
     return final_position 
 
 def getNearest(bloons, player_position):
@@ -422,24 +444,24 @@ def getObjects(is_boss_fight = False):
     golds = None
     if not is_boss_fight:
         if COLLECT_BANANAS:
-            bananas, _, banana_objects = findColorCluster(latest_frame, banana_outline_color, 100, 1000, 20, "bananas", banana_verifier)    
+            bananas, _, banana_objects = findColorCluster(latest_frame, banana_outline_color, 100, 1000, 1, "bananas", banana_verifier)    
             newObjects.extend(banana_objects)
 
         if COLLECT_ENCOUNTERS:
-            encounters, _, encounter_objects = findColorCluster(latest_frame, encounter_color, 100, 1000, 100, "encounters")
+            encounters, _, encounter_objects = findColorCluster(latest_frame, encounter_color, 250, 1000, 5, "encounters")
             newObjects.extend(encounter_objects)
 
         if COLLECT_GOLD:
-            golds, _, gold_objects = findColorClusterGroup(latest_frame, gold_color, 50, 300, 20, "gold", gold_verifier)
+            golds, _, gold_objects = findColorClusterGroup(latest_frame, gold_color, 60, 150, 7, "gold", gold_verifier)
             newObjects.extend(gold_objects)
     
     if DODGE_BULLETS and is_boss_fight:
-        boss_bullets, _, bullet_objects = findColorCluster(latest_frame, purple_orb_attack_color, 50, 1000, 20, label = "boss_bullets")
+        boss_bullets, _, bullet_objects = findColorCluster(latest_frame, purple_orb_attack_color, 40, 1000, 50, "boss_bullets", bullet_verifier)
         newObjects.extend(bullet_objects)
 
     bloons = None
-    if AVOID_BLOONS:
-        bloons, _, bloons_objects = findColorClusterGroup(latest_frame, bloon_color, 50, 1200, 3, label = "bloons", verifier=bloon_verifier)
+    if AVOID_BLOONS and not is_boss_fight:
+        bloons, _, bloons_objects = findColorClusterGroup(latest_frame, bloon_color, 50, 500, 3,"bloons", bloon_verifier)
         newObjects.extend(bloons_objects)
 
     heart_center = None
@@ -467,19 +489,24 @@ def banana_verifier(x,y,w,h,area):
 def bloon_verifier(x,y,w,h,area):
     x = x+w/2
     y = y+h/2
-    return ((x-player_position["x"])**2+(y-player_position["y"])**2) < 15000
+    return sq_distance((x,y), player_position.values()) < 22000
 
 def gold_verifier(x,y,w,h,area):
     return w/h < 1.3 and h/w < 1.3 and area < 250
 
+def bullet_verifier(x,y,w,h,area):
+    if (heart_location is None):
+        return True 
+    return sq_distance((x,y), heart_location) < 20000
+
 ##################### MAIN LOOP #############################
 init()
 print("Finished bot initialization.\n" 
-    + "W: Start playing\n"
+    + "Ctrl + W: Start playing\n"
     + "Ctrl + P: Pause\n"
     + "Ctrl + Q: Quit program\n")
 
-while not stop_event.is_set() and not kb.is_pressed('w') :
+while not stop_event.is_set() and not starting:
     time.sleep(0.5)
 
 def bot_loop():
@@ -504,7 +531,6 @@ def bot_loop():
             while not checkColor(win_screen, latest_frame)[0] and not stop_event.is_set():
                 while (pausing):
                     time.sleep(1)
-                time.sleep(0.2)
                 frame_counter += 1
                 new_frame_timer = time_ms()
                 if (PRINT_FRAME_TIME):
@@ -534,25 +560,24 @@ def bot_loop():
                         pydirectinput.leftClick(pause_button[0]["x"], pause_button[0]["y"])
                         continue
 
-                    newObjects = getObjects(is_boss_fight)
-
-                    heart_center = newObjects["heart_center"]
-                    if heart_center is not None:
-                        #update heart location
-                        heart_location = heart_center
-
                     while ((time_ms()) - frame_timer < 1500):
-                        time.sleep(0.1)
+                        newObjects = getObjects(is_boss_fight)
+
+                        heart_center = newObjects["heart_center"]
+                        if heart_center is not None:
+                            #update heart location
+                            heart_location = heart_center
+
+                        boss_bullets = newObjects["boss_bullets"]
+                        if (heart_location is not None and DODGE_BULLETS and len(boss_bullets)):
+                            stopMovement()
+                            x,y = getDodgePosition(heart_location, boss_bullets)
+                            print(x,y)
+                            moveTo(heart_location, (x, y))
+                            continue 
+
                     stopMovement()
                     time.sleep(0.1)
-
-                    boss_bullets = newObjects["boss_bullets"]
-                    if (heart_location is not None and DODGE_BULLETS and len(boss_bullets)):
-                        x,y = getDodgePosition(heart_location, boss_bullets)
-                        print(x,y)
-                        moveTo(heart_location, (x, y))
-                        continue 
-                    
                     last_direction = moveCircle(last_direction)
 
                 elif checkColor(boss_fight_screen,latest_frame)[0]:
