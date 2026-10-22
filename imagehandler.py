@@ -100,11 +100,12 @@ region_split_y = [209,390,523,900]
 
 def findColorCluster(img, color, min_area = 10, threshold = 1000, kernel_size = 15, label = "", verifier = None):
     err = extract(img, hex_to_bgr(color), threshold).astype(np.uint8)
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_RECT,
-        (kernel_size, kernel_size)
-    )
-    cv2.morphologyEx(err, cv2.MORPH_CLOSE, kernel)
+    if (kernel_size > 1):
+        kernel = cv2.getStructuringElement(
+                cv2.MORPH_RECT,
+                (kernel_size, kernel_size)
+        )
+        err = cv2.morphologyEx(err, cv2.MORPH_CLOSE, kernel)
 
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(err, connectivity = 8)
     clusters = []
@@ -123,14 +124,15 @@ def findColorCluster(img, color, min_area = 10, threshold = 1000, kernel_size = 
 
     return clusters, new_err, objects
 
-def findColorClusterGroup(img, color_group, min_area = 10, threshold = 1000, kernel_size = 15, label = "", verifier = None):
+def findColorClusterGroup(img, color_group, min_area = 10, threshold = 1000, kernel_size = 1, label = "", verifier = None):
     color_group = [hex_to_bgr(color) for color in color_group]
     err = extractGroup(img, color_group, threshold).astype(np.uint8)
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_RECT,
-        (kernel_size, kernel_size)
-    )
-    cv2.morphologyEx(err, cv2.MORPH_CLOSE, kernel)
+    if (kernel_size > 1):
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT,
+            (kernel_size, kernel_size)
+        )
+        err = cv2.morphologyEx(err, cv2.MORPH_CLOSE, kernel)
 
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(err, connectivity = 8)
     clusters = []
@@ -241,7 +243,7 @@ def getText(img, x1, y1, x2, y2):
     return full_text, full_confidence
 
 def bloon_verifier(x,y,w,h,area):
-    return (area > 100)
+    return (area > 50)
 
 if __name__ == "__main__":
     #Main function primarily for testing purposes
@@ -269,11 +271,24 @@ if __name__ == "__main__":
 
     keyboard_listener = keyboard.Listener(on_press=on_press)
     keyboard_listener.start()
-
+    gold_color = [
+        0xffcaa1,
+        0xfff74b,
+        0xffe70c,
+        0xffdf04
+    ]
+    bloon_color = [
+        0xFE2D38, #RED
+        0x16AAFF  #BLUE
+    ]
     while True:
         img = grabScreenshot(sct)
-        checkColor(mini_boss_screen,img)
-        clusters, err, objects = findColorClusterGroup(img, bloon_color, 100, 1200, 3, label = "bloons", verifier=bloon_verifier)
+        #clusters, err, objects =  findColorCluster(img, 0xFF4AFF, 30, 1000, 99, label = "boss_bullets")
+        #clusters, err, objects = findColorCluster(img, 0x78C9A6, 250, 1000, 5, "encounters")
+        clusters, err, objects = findColorClusterGroup(img, gold_color, 60, 150, 7, "gold")
+        #clusters, err, objects = findColorCluster(img, 0x70EFFD, 30, 1000, 10, "blop")
+        #clusters, err, objects = findColorClusterGroup(img, bloon_color, 50, 500, 3, label = "bloons", verifier=bloon_verifier)
+                
         # objects, _= searchSprite(img, player_hp_sprite, "health", FIRST_APPEARANCE)
         # objects.extend(bananas)
         # img = addObjects(img, objects)
