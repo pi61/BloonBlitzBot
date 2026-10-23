@@ -16,6 +16,7 @@ Note that easyocr requires opencv-python-headless package, but we will be using 
 During installation, it will ask whether you want to install CUDA-enabled PyTorch. Doing this will speed up EasyOCR by a significant amount, but only do this if you have a CUDA capable GPU.
 
 3. Running the bot:
+Edit behavior options in "main.py" if necessary, then run the main script
 
 ```bash
 python main.py
