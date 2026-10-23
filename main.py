@@ -15,26 +15,29 @@ pydirectinput.PAUSE = 0
 
 ################## OPTIONS ##############################
 # General options
-PRINT_FRAME_TIME = False    # Print the delay between subsequent processing ticks (frames)
+PRINT_FRAME_TIME = False        # Print the delay between subsequent processing ticks (frames)
+                                # A delay less than 300ms should be good enough
 
 # Collection behavior
-COLLECT_BANANAS = False     # Make the bot attempt to collect bananas
-COLLECT_ENCOUNTERS = True   # Make the bot attempt to collect encounters
-COLLECT_GOLD = True         # Make the bot attempt to collect gold
+COLLECT_BANANAS = False         # Make the bot attempt to collect bananas
+                                # Currently, the bot can mix up a lot of things as
+                                # bananas. You should keep this disabled normally.
+COLLECT_ENCOUNTERS = True       # Make the bot attempt to collect encounters
+COLLECT_GOLD = True             # Make the bot attempt to collect gold
 
 # Movement behavior
-ENABLE_MOVEMENT = True      # Turn this off to disable movement altogether. Useful for testing.
-AVOID_BLOONS = True         # Make the bot attempt to avoid getting hit by red & blue bloons.
-                            # It may detect unrelated obstacles as bloons
-DODGE_BULLETS = True       # Make the bot attempt to avoid purple attacks from the bosses
-MAINTAIN_MOVEMENT = True    # Make the bot keep moving in the last moved direction instead of 
-                            # standing still
+ENABLE_MOVEMENT = True          # Turn this off to disable movement altogether. Useful for testing.
+AVOID_BLOONS = True             # Make the bot attempt to avoid getting hit by red & blue bloons.
+                                # It may detect unrelated obstacles as bloons
+DODGE_BULLETS = True            # Make the bot attempt to avoid purple attacks from the bosses
+MAINTAIN_MOVEMENT = True        # Make the bot keep moving in the last moved direction instead of 
+                                # standing still
 
 # Upgrade behavior
-USE_OCR = True # Disabling this cause the bot to choose random upgrades, 
-                # and skips initializing EasyOCR which massively improve initialization speed. 
-                # Useful for testing.
-UPGRADE_FILE = 'upgrades.txt' # List of upgrades sorted by priority. Each upgrade should be on a separate line.
+USE_OCR = True                  # Disabling this cause the bot to choose random upgrades, 
+                                # and skips initializing EasyOCR which massively improve initialization speed. 
+                                # Useful for testing.
+UPGRADE_FILE = 'upgrades.txt'   # List of upgrades sorted by priority. Each upgrade should be on a separate line.
 
 
 ##################  POSITIONS  ###########################
