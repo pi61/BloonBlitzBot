@@ -28,7 +28,10 @@ COLLECT_GOLD = True             # Make the bot attempt to collect gold
 # Movement behavior
 ENABLE_MOVEMENT = True          # Turn this off to disable movement altogether. Useful for testing.
 AVOID_BLOONS = True             # Make the bot attempt to avoid getting hit by red & blue bloons.
-                                # It may detect unrelated obstacles as bloons
+                                # This is not necessary if you have a good healing build
+                                # Turning this on will make it very hard for the bot to 
+                                # move anywhere meaningful in dense stages as it will constantly
+                                # be dodging bloons
 DODGE_BULLETS = True            # Make the bot attempt to avoid purple attacks from the bosses
 MAINTAIN_MOVEMENT = True        # Make the bot keep moving in the last moved direction instead of 
                                 # standing still
