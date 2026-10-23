@@ -17,7 +17,8 @@ A weak build (for example, gold farming build) will likely die to most stages.
 ```bat
 setup.bat
 ```
-
+This should install all dependencies.
+Note that easyocr requires opencv-python-headless package, but we will be using the full opencv-python. The setup file should correctly remove the headless package, but `python -m pip check` will see missing dependency. This doesn't prevent the bot from running.
 3. Running the bot:
 
 ```bash
