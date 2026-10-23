@@ -1,0 +1,7 @@
+numpy
+pydirectinput
+mss
+pynput
+opencv-python
+keyboard
+easyocr
