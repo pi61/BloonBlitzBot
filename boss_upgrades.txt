@@ -1,8 +1,10 @@
 critical overdrive
 point shooting
+point shooting +
 burst fire
 double tap
 semi-automatic
+semi-automatic +
 
 fuel leak
 everything burns
@@ -53,6 +55,7 @@ rapid rangs
 blade maelstrom
 magnetic blades
 more blades
+blade shooter +
 blade shooter
 bigger blades
 bouncing blades
@@ -88,6 +91,7 @@ turbocharge
 concussive rangs
 mecha rangs
 
+more tacks +
 more tacks
 even more tacks
 tack onslaught

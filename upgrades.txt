@@ -24,6 +24,7 @@ hot streak
 feelin' it
 
 burny stuff
+burny stuff +
 roasted
 rapid cannon
 extra gunpowder
@@ -43,15 +44,18 @@ rapid rangs
 
 critical overdrive
 point shooting
+point shooting +
 burst fire
 double tap
 semi-automatic
+semi-automatic +
 deep strike ballistics
 anti-materiel rounds
 
 blade maelstrom
 magnetic blades
 more blades
+blade shooter +
 blade shooter
 bigger blades
 bouncing blades
@@ -87,6 +91,7 @@ turbocharge
 concussive rangs
 mecha rangs
 
+more tacks +
 more tacks
 even more tacks
 tack onslaught

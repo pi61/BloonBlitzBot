@@ -40,7 +40,7 @@ MAINTAIN_MOVEMENT = True        # Make the bot keep moving in the last moved dir
 USE_OCR = True                  # Disabling this cause the bot to choose random upgrades, 
                                 # and skips initializing EasyOCR which massively improve initialization speed. 
                                 # Useful for testing.
-UPGRADE_FILE = 'upgrades.txt'   # List of upgrades sorted by priority. Each upgrade should be on a separate line.
+UPGRADE_FILE = 'boss_upgrades.txt'   # List of upgrades sorted by priority. Each upgrade should be on a separate line.
 
 
 ##################  POSITIONS  ###########################
@@ -124,6 +124,14 @@ ad_screen = [
     {"x": 1105, "y": 703, "color": 0x9430e7},
     {"x": 813, "y": 704, "color": 0x9430e7},
     {"x": 1126, "y": 203, "color": 0xad0000}
+]
+
+daily_quests_screen = [
+    {"x": 796, "y": 249, "color": 0xffffff},
+    {"x": 909, "y": 232, "color": 0xe4f7ff},
+    {"x": 785, "y": 507, "color": 0x843800},
+    {"x": 1137, "y": 691, "color": 0x843800},
+    {"x": 796, "y": 301, "color": 0xcbc0bb}
 ]
 
 boss_fight_screen = [
@@ -487,7 +495,7 @@ def getObjects():
             newObjects.extend(gold_objects)
     
     if DODGE_BULLETS and is_boss_fight:
-        boss_bullets, _, bullet_objects = findColorCluster(latest_frame, purple_orb_attack_color, 40, 1000, 29, "boss_bullets", bullet_verifier)
+        boss_bullets, _, bullet_objects = findColorCluster(latest_frame, purple_orb_attack_color, 40, 1000, 9, "boss_bullets", bullet_verifier)
         newObjects.extend(bullet_objects)
 
     if AVOID_BLOONS and not is_boss_fight:
@@ -702,6 +710,10 @@ def bot_loop():
             print("ad")
             pydirectinput.leftClick(ad_screen[0]["x"], ad_screen[0]["y"])
 
+        if checkColor(daily_quests_screen, latest_frame)[0]:
+            print("daily quest")
+            pydirectinput.leftClick(daily_quests_screen[0]["x"], daily_quests_screen[0]["y"])
+        
         time.sleep(1)
 
     running = False
