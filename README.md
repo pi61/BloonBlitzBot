@@ -35,4 +35,4 @@ Currently doesn't work very well with weak setups. If you have a strong healing 
 A weak build (for example, gold farming build) will likely die to most stages.
 
 ## Demo
-<iframe width="1052" height="592" src="https://www.youtube.com/embed/83Tk1HMSi1k" title="Letting a clanker play Bloon Blitz so I don&#39;t have to" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+https://www.youtube.com/watch?v=83Tk1HMSi1k
