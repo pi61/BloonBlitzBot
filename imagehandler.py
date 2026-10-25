@@ -66,23 +66,11 @@ exp_region = [
     {"x": 1222, "y": 984}
 ]
 
-#extract pixels that has a certain color 
-def extract(img, color, threshold = 1000, is_play_area = True):
-    diff = img[:, :, :3].astype(np.int32) - np.array(color, dtype=np.int32)
-    sq_error = np.sum(diff * diff, axis=2)
-    err = sq_error <= threshold
-    if (is_play_area):
-        top = exp_region[0]["y"] - play_area["top"]
-        bottom = exp_region[1]["y"] - play_area["top"]
-        err[:top,:] = False
-        err[bottom:,:] = False
-    return err
-
 #extract pixels that has a certain group of color 
-def extractGroup(img, color_group, threshold = 1000, is_play_area = True):
+def extract(img, colors, threshold = 1000, is_play_area = True):
     img32 = img[:, :, :3].astype(np.int32)
     sq_error = np.full(img.shape[:2], 999999, dtype=np.int32)
-    for color in color_group:
+    for color in colors:
         diff_color = img32 - np.asarray(color, dtype=np.int32)
         dist = np.sum(diff_color * diff_color, axis=2)
         np.minimum(sq_error, dist, out=sq_error)
@@ -98,35 +86,11 @@ def extractGroup(img, color_group, threshold = 1000, is_play_area = True):
 region_split_x = [689,880,1030,1222]
 region_split_y = [209,390,523,900]
 
-def findColorCluster(img, color, min_area = 10, threshold = 1000, kernel_size = 15, label = "", verifier = None):
-    err = extract(img, hex_to_bgr(color), threshold).astype(np.uint8)
-    if (kernel_size > 1):
-        kernel = cv2.getStructuringElement(
-                cv2.MORPH_RECT,
-                (kernel_size, kernel_size)
-        )
-        err = cv2.morphologyEx(err, cv2.MORPH_CLOSE, kernel)
-
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(err, connectivity = 8)
-    clusters = []
-    objects = []
-    new_err = np.zeros((*err.shape[:2], 3), dtype=np.uint8)
-    new_err[err == True] = (255, 255, 255)
-    for i in range(1, num_labels):  # Skip background (label 0)
-        x = stats[i, cv2.CC_STAT_LEFT]
-        y = stats[i, cv2.CC_STAT_TOP]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        area = stats[i, cv2.CC_STAT_AREA]
-        if (area >= min_area and (verifier is None or (verifier(x,y,w,h,area) == True))):
-            clusters.append([x,y,w,h])
-            objects.append([x-10,y-10,x+w+10,y+h+10,hex_to_bgr(color), label + ": " + str(area)])
-
-    return clusters, new_err, objects
-
-def findColorClusterGroup(img, color_group, min_area = 10, threshold = 1000, kernel_size = 1, label = "", verifier = None):
+def findColorCluster(img, color_group, min_area = 10, threshold = 1000, kernel_size = 1, label = "", verifier = None):
+    if isinstance(color_group, int):
+        color_group = [color_group]
     color_group = [hex_to_bgr(color) for color in color_group]
-    err = extractGroup(img, color_group, threshold).astype(np.uint8)
+    err = extract(img, color_group, threshold).astype(np.uint8)
     if (kernel_size > 1):
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT,
@@ -151,8 +115,11 @@ def findColorClusterGroup(img, color_group, min_area = 10, threshold = 1000, ker
 
     return clusters, new_err, objects
 
-def findMaxColorRegion(img, color, min_area = 50, threshold = 1000):
-    err = extract(img, hex_to_bgr(color), threshold)
+def findMaxColorRegion(img, colors, min_area = 50, threshold = 1000):
+    if isinstance(colors, int):
+        colors = [colors] 
+    colors = [hex_to_bgr(color) for color in colors]
+    err = extract(img, colors, threshold)
 
     counts = {}
     rects = {}
@@ -200,7 +167,7 @@ def searchSprite(img, sprite, label, type = MAX_CONFIDENCE):
     
     screen = img[:,:,:3]
 
-    mask = extract(sprite, hex_to_bgr(0), 10, False)
+    mask = extract(sprite, [hex_to_bgr(0)], 10, False)
     mask = (mask == False).astype(np.uint8)*255
     result = cv2.matchTemplate(screen, sprite, cv2.TM_CCOEFF_NORMED, mask)
     top = exp_region[0]["y"] - play_area["top"]
@@ -272,7 +239,7 @@ if __name__ == "__main__":
     keyboard_listener = keyboard.Listener(on_press=on_press)
     keyboard_listener.start()
     gold_color = [
-        0xffcaa1,
+        #0xffcaa1,
         0xfff74b,
         0xffe70c,
         0xffdf04
@@ -283,11 +250,15 @@ if __name__ == "__main__":
     ]
     while True:
         img = grabScreenshot(sct)
+        encounter_color = [
+            0x78C9A6,
+            0x90a5a4
+        ]
         #clusters, err, objects =  findColorCluster(img, 0xFF4AFF, 30, 1000, 99, label = "boss_bullets")
-        #clusters, err, objects = findColorCluster(img, 0x78C9A6, 250, 1000, 5, "encounters")
-        clusters, err, objects = findColorClusterGroup(img, gold_color, 60, 150, 7, "gold")
+        clusters, err, objects = findColorCluster(img, encounter_color, 250, 1000, 5, "encounters")
+        #clusters, err, objects = findColorCluster(img, gold_color, 60, 300, 9, "gold")
         #clusters, err, objects = findColorCluster(img, 0x70EFFD, 30, 1000, 10, "blop")
-        #clusters, err, objects = findColorClusterGroup(img, bloon_color, 50, 500, 3, label = "bloons", verifier=bloon_verifier)
+        #clusters, err, objects = findColorCluster(img, bloon_color, 50, 500, 3, label = "bloons", verifier=bloon_verifier)
                 
         # objects, _= searchSprite(img, player_hp_sprite, "health", FIRST_APPEARANCE)
         # objects.extend(bananas)

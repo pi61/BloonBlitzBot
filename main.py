@@ -11,6 +11,8 @@ import cv2
 import keyboard as kb
 import cProfile
 from random import randint
+from enum import Enum, auto
+from window_info import get_display_info
 pydirectinput.PAUSE = 0
 
 ################## OPTIONS ##############################
@@ -165,9 +167,11 @@ bloon_color = [
     0xFE2D38, #RED
     0x16AAFF  #BLUE
 ]
-encounter_color = 0x78C9A6
+encounter_color = [
+    0x78C9A6
+]
+
 gold_color = [
-    0xffcaa1,
     0xfff74b,
     0xffe70c,
     0xffdf04
@@ -187,6 +191,7 @@ frame_lock = threading.Lock()
 quit_hotkey = None
 pause_hotkey = None
 start_hotkey = None
+info_hotkey = None
 listener = None
 pausing = False
 playing = False 
@@ -263,7 +268,7 @@ def init():
             upgrades.append(cur)
 
     #init hotkey functions
-    global pause_hotkey, quit_hotkey, start_hotkey, listener
+    global pause_hotkey, quit_hotkey, start_hotkey, info_hotkey, listener
     quit_hotkey = keyboard.HotKey(
         keyboard.HotKey.parse('<ctrl>+q'),
         quit_program
@@ -277,6 +282,11 @@ def init():
     start_hotkey = keyboard.HotKey(
         keyboard.HotKey.parse('<ctrl>+w'),
         start_bot
+    )
+
+    info_hotkey = keyboard.HotKey(
+        keyboard.HotKey.parse('<ctrl>+i'),
+        print_display_info
     )
     
     listener = keyboard.Listener(
@@ -303,15 +313,50 @@ def start_bot():
     print("Starting bot")
     starting = True 
 
+def print_display_info():
+    try:
+        info = get_display_info()
+    except (LookupError, OSError) as error:
+        print(f"Unable to inspect the game window: {error}")
+        return
+
+    print(f"Game window: {info.game_window_title}")
+    print(
+        "Primary screen resolution: "
+        f"{info.primary_screen_resolution[0]}x{info.primary_screen_resolution[1]}"
+    )
+    print(
+        "Game monitor resolution: "
+        f"{info.game_monitor_resolution[0]}x{info.game_monitor_resolution[1]}"
+    )
+    print(
+        f"Game resolution (client area): "
+        f"{info.game_resolution[0]}x{info.game_resolution[1]}"
+    )
+    print(
+        f"Game window position (outer, screen): "
+        f"x={info.window_position[0]}, y={info.window_position[1]}"
+    )
+    print(
+        f"Game window size (outer): "
+        f"{info.window_size[0]}x{info.window_size[1]}"
+    )
+    print(
+        f"Game client position (screen): "
+        f"x={info.client_position[0]}, y={info.client_position[1]}"
+    )
+
 def on_press(key):
     quit_hotkey.press(listener.canonical(key))
     pause_hotkey.press(listener.canonical(key))
     start_hotkey.press(listener.canonical(key))
+    info_hotkey.press(listener.canonical(key))
 
 def on_release(key):
     quit_hotkey.release(listener.canonical(key))
     pause_hotkey.release(listener.canonical(key))
     start_hotkey.release(listener.canonical(key))
+    info_hotkey.release(listener.canonical(key))
 
 def stopMovement():
     pydirectinput.keyUp('a')
@@ -491,7 +536,7 @@ def getObjects():
             newObjects.extend(encounter_objects)
 
         if COLLECT_GOLD:
-            golds, _, gold_objects = findColorClusterGroup(latest_frame, gold_color, 60, 300, 9, "gold", gold_verifier)
+            golds, _, gold_objects = findColorCluster(latest_frame, gold_color, 60, 300, 9, "gold", gold_verifier)
             newObjects.extend(gold_objects)
     
     if DODGE_BULLETS and is_boss_fight:
@@ -499,7 +544,7 @@ def getObjects():
         newObjects.extend(bullet_objects)
 
     if AVOID_BLOONS and not is_boss_fight:
-        bloons, _, bloons_objects = findColorClusterGroup(latest_frame, bloon_color, 50, 500, 3,"bloons", bloon_verifier)
+        bloons, _, bloons_objects = findColorCluster(latest_frame, bloon_color, 50, 500, 3,"bloons", bloon_verifier)
         newObjects.extend(bloons_objects)
 
     if is_boss_fight:
@@ -543,178 +588,245 @@ init()
 print("Finished bot initialization.\n" 
     + "Ctrl + W: Start playing\n"
     + "Ctrl + P: Pause\n"
+    + "Ctrl + I: Show display and game window information\n"
     + "Ctrl + Q: Quit program\n")
 
 while not stop_event.is_set() and not starting:
     time.sleep(0.5)
 
+
+class BotState(Enum):
+    MENU = auto()
+    PLAYING = auto()
+    BOSS_FIGHT = auto()
+
+
+def handle_upgrade():
+    if USE_OCR:
+        time.sleep(0.3)  # Sleep to make sure everything loads up first
+    current_time = time_ms()
+    (x1, y1, x2, y2), text = pickUpgrade(latest_frame)
+    while text == "unknown" and time_ms() - current_time < 1000:
+        (x1, y1, x2, y2), text = pickUpgrade(latest_frame)
+    print("upgrade:" + text)
+    screen_objects.append([x1, y1, x2, y2, (0, 0, 255), text])
+    pydirectinput.leftClick((x1 + x2) // 2, (y1 + y2) // 2)
+
+
+def handle_normal_play(last_direction):
+    stopMovement()
+
+    bananas = game_objects["bananas"]
+    if COLLECT_BANANAS and len(bananas):
+        x, y, w, h = bananas[0]
+        center = (x + w / 2, y + h / 2)
+        return moveTo(player_position.values(), center)
+
+    bloons = game_objects["bloons"]
+    if AVOID_BLOONS and len(bloons):
+        (x, y, w, h), _ = getNearest(bloons, player_position.values())
+        center = (x + w / 2, y + h / 2)
+        moveAway(player_position.values(), center)
+        return last_direction
+
+    golds = game_objects["golds"]
+    if COLLECT_GOLD and len(golds):
+        (x, y, w, h), _ = getNearest(golds, player_position.values())
+        center = (x + w / 2, y + h / 2)
+        return moveTo(player_position.values(), center)
+
+    encounters = game_objects["encounters"]
+    if COLLECT_ENCOUNTERS and len(encounters):
+        x, y, w, h = encounters[0]
+        center = (x + w / 2, y + h / 2)
+        return moveTo(player_position.values(), center)
+
+    best_direction = game_objects["best_direction"]
+    if len(best_direction) == 0 and MAINTAIN_MOVEMENT:
+        if len(last_direction) == 0:
+            last_direction = ["w", "a", "s", "d"][randint(0, 3)]
+        best_direction = last_direction
+    else:
+        last_direction = best_direction
+
+    moveToDirection(best_direction)
+    return last_direction
+
+
+def finish_round(game_timer):
+    print("done")
+    new_timer = time_ms()
+    with open("log.txt", "a") as file:
+        file.write(
+            "Finished in: "
+            + str(new_timer - game_timer)
+            + "ms at:"
+            + str(datetime.now())
+            + "\n"
+        )
+    stopMovement()
+    return new_timer
+
+
+def handle_menu_state():
+    if checkColor(play_button, latest_frame)[0]:
+        print("menu")
+        pydirectinput.leftClick(
+            play_button[0]["x"],
+            play_button[0]["y"],
+        )
+
+    if checkColor(pause_button, latest_frame)[0]:
+        global playing, is_boss_fight
+        print("playing")
+        playing = True
+        is_boss_fight = False
+        return BotState.PLAYING
+
+    handle_menu_screens()
+    return BotState.MENU
+
+
+def handle_menu_screens():
+    screens = (
+        (win_screen, "won"),
+        (rate_game_screen, "rate"),
+        (tips_screen, "tips"),
+        (health_shop_screen, "health shop"),
+        (ad_screen, "ad"),
+        (daily_quests_screen, "daily quest"),
+    )
+    for screen, label in screens:
+        if checkColor(screen, latest_frame)[0]:
+            print(label)
+            pydirectinput.leftClick(screen[0]["x"], screen[0]["y"])
+
+
+def transition_to_menu(last_direction, game_timer, boss_action_timer):
+    global playing, is_boss_fight
+
+    playing = False
+    is_boss_fight = False
+    game_timer = finish_round(game_timer)
+    return BotState.MENU, last_direction, game_timer, boss_action_timer
+
+
+def handle_playing_state(last_direction, game_timer, boss_action_timer):
+    global playing, is_boss_fight
+
+    if checkColor(play_button, latest_frame)[0]:
+        return transition_to_menu(last_direction, game_timer, boss_action_timer)
+
+    if checkColor(win_screen, latest_frame)[0]:
+        playing = False
+        game_timer = finish_round(game_timer)
+        handle_menu_screens()
+        return BotState.MENU, last_direction, game_timer, boss_action_timer
+
+    if checkColor(upgrade_menu, latest_frame)[0]:
+        print("upgrading")
+        handle_upgrade()
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+
+    if (
+        checkColor(boss_fight_screen, latest_frame)[0]
+        or checkColor(mini_boss_screen, latest_frame)[0]
+    ):
+        print("boss fight")
+        is_boss_fight = True
+        boss_action_timer = time_ms()
+        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+
+    last_direction = handle_normal_play(last_direction)
+    return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+
+
+def handle_boss_fight_state(last_direction, game_timer, boss_action_timer):
+    global heart_location, playing, is_boss_fight
+
+    if checkColor(play_button, latest_frame)[0]:
+        return transition_to_menu(last_direction, game_timer, boss_action_timer)
+
+    if checkColor(win_screen, latest_frame)[0]:
+        playing = False
+        game_timer = finish_round(game_timer)
+        handle_menu_screens()
+        return BotState.MENU, last_direction, game_timer, boss_action_timer
+
+    if checkColor(upgrade_menu, latest_frame)[0]:
+        print("upgrading")
+        handle_upgrade()
+        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+
+    if checkColor(mini_boss_victory_screen, latest_frame)[0]:
+        print("miniboss killed")
+        is_boss_fight = False
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+
+    if checkColor(boss_victory_screen, latest_frame)[0]:
+        print("boss killed")
+        is_boss_fight = False
+        pydirectinput.leftClick(
+            pause_button[0]["x"],
+            pause_button[0]["y"],
+        )
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+
+    heart_center = game_objects["heart_center"]
+    if heart_center is not None:
+        heart_location = heart_center
+
+    boss_bullets = game_objects["boss_bullets"]
+    if heart_location is not None and DODGE_BULLETS and len(boss_bullets):
+        stopMovement()
+        x, y = getDodgePosition(heart_location, boss_bullets)
+        print(x, y)
+        moveTo(heart_location, (x, y))
+        boss_action_timer = time_ms()
+    elif time_ms() - boss_action_timer >= 1500:
+        stopMovement()
+        time.sleep(0.1)
+        last_direction = moveCircle(last_direction)
+        boss_action_timer = time_ms()
+
+    return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+
+
 def bot_loop():
-    global running, heart_location, playing, is_boss_fight
+    global running, playing
+    state = BotState.MENU
     last_direction = ''
     game_timer = time_ms()
+    boss_action_timer = game_timer
+
     while not stop_event.is_set():
-        while (pausing):
+        if pausing:
             time.sleep(1)
-        if checkColor(play_button, latest_frame)[0]:
-            print("menu")
-            pydirectinput.leftClick(
-                play_button[0]["x"],
-                play_button[0]["y"]
+            continue
+
+        if state is BotState.MENU:
+            state = handle_menu_state()
+        elif state is BotState.PLAYING:
+            state, last_direction, game_timer, boss_action_timer = handle_playing_state(
+                last_direction,
+                game_timer,
+                boss_action_timer,
+            )
+        else:
+            state, last_direction, game_timer, boss_action_timer = handle_boss_fight_state(
+                last_direction,
+                game_timer,
+                boss_action_timer,
             )
 
-        if checkColor(pause_button, latest_frame)[0]:
-            print("playing")
-            playing = True
-            is_boss_fight = False
-            frame_counter = 0
-            frame_timer = time_ms()
-            while not checkColor(win_screen, latest_frame)[0] and not stop_event.is_set():
-                while (pausing):
-                    time.sleep(1)
-                time.sleep(0.1)
-                frame_counter += 1
-                new_frame_timer = time_ms()
-                frame_timer = new_frame_timer
-                if checkColor(upgrade_menu, latest_frame)[0]:
-                    print("upgrading")
-                    if USE_OCR:
-                        time.sleep(0.3) #Sleep to make sure everything loads up first
-                    currentTime = time_ms()
-                    (x1,y1,x2,y2), text = pickUpgrade(latest_frame)
-                    while (text == "unknown" and (time_ms()) - currentTime < 1000):
-                        (x1,y1,x2,y2), text = pickUpgrade(latest_frame)
-                    print("upgrade:"+text)
-                    screen_objects.append([x1,y1,x2,y2,(0,0,255),text])
-                    x = (x1+x2)//2
-                    y = (y1+y2)//2
-                    pydirectinput.leftClick(x, y)
-                
-                elif is_boss_fight:
-                    # Handles fighting bosses
-                    if checkColor(mini_boss_victory_screen, latest_frame)[0]:
-                        print("miniboss killed")
-                        is_boss_fight = False
-                        continue 
+        if state in (BotState.PLAYING, BotState.BOSS_FIGHT):
+            time.sleep(0.1)
+        else:
+            time.sleep(1)
 
-                    if (checkColor(boss_victory_screen, latest_frame)[0] 
-                        or checkColor(boss_victory_screen, latest_frame)[0]
-                        or stop_event.is_set()):
-                        print("boss killed")
-                        is_boss_fight = False
-                        pydirectinput.leftClick(pause_button[0]["x"], pause_button[0]["y"])
-                        continue
-
-                    dodging = False
-                    while ((time_ms()) - frame_timer < 1500):
-                        heart_center = game_objects["heart_center"]
-                        if heart_center is not None:
-                            #update heart location
-                            heart_location = heart_center
-
-                        boss_bullets = game_objects["boss_bullets"]
-                        if (heart_location is not None and DODGE_BULLETS and len(boss_bullets)):
-                            stopMovement()
-                            x,y = getDodgePosition(heart_location, boss_bullets)
-                            print(x,y)
-                            moveTo(heart_location, (x, y))
-                            dodging = True 
-                            break
-
-                        time.sleep(0.1)
-
-                    if (dodging):
-                        continue 
-
-                    stopMovement()
-                    time.sleep(0.1)
-                    last_direction = moveCircle(last_direction)
-
-                elif (checkColor(boss_fight_screen,latest_frame)[0] 
-                        or checkColor(mini_boss_screen, latest_frame)[0]):
-                    print("boss fight")
-                    is_boss_fight = True
-
-                else:
-                    #Plays normally
-                    stopMovement()
-
-                    bananas = game_objects["bananas"]
-                    if (COLLECT_BANANAS and len(bananas)):
-                        x,y,w,h = bananas[0]
-                        center = (x+w/2, y+h/2)
-                        last_direction = moveTo(player_position.values(), center)
-                        continue
-
-                    bloons = game_objects["bloons"]
-                    if (AVOID_BLOONS and len(bloons)):
-                        (x,y,w,h),dist = getNearest(bloons, player_position.values())
-                        center = (x+w/2, y+h/2)
-                        moveAway(player_position.values(), center)
-                        continue
-
-                    golds = game_objects["golds"]
-                    if COLLECT_GOLD and len(golds):
-                        (x,y,w,h),dist = getNearest(golds, player_position.values())
-                        center = (x+w/2, y+h/2)
-                        last_direction = moveTo(player_position.values(), center)
-                        continue
-                    
-                    encounters = game_objects["encounters"]
-                    if COLLECT_ENCOUNTERS and len(encounters):
-                        x,y,w,h = encounters[0]
-                        center = (x+w/2, y+h/2)
-                        last_direction = moveTo(player_position.values(), center)
-                        continue
-
-                    keys = ['w','a','s','d']
-
-                    # If no direction is found, keep moving with last direction
-                    best_direction = game_objects["best_direction"]
-                    if len(best_direction) == 0 and MAINTAIN_MOVEMENT:
-                        if len(last_direction) == 0:
-                            last_direction = keys[randint(0,3)]
-                        best_direction = last_direction
-                    else:
-                        last_direction = best_direction
-
-                    moveToDirection(best_direction)
-                    
-
-            print("done")
-            playing = False 
-            with open("log.txt", "a") as file:
-                new_timer = time_ms()
-                file.write("Finished in: " + str(new_timer - game_timer)+"ms at:" + str(datetime.now()) + "\n")
-                game_timer = new_timer
-                file.close()
-            
-            stopMovement()
-
-        if checkColor(win_screen, latest_frame)[0]:
-            print("won")
-            pydirectinput.leftClick(win_screen[0]["x"], win_screen[0]["y"])
-
-        if checkColor(rate_game_screen, latest_frame)[0]:
-            print("rate")
-            pydirectinput.leftClick(rate_game_screen[0]["x"], rate_game_screen[0]["y"])
-
-        if checkColor(tips_screen, latest_frame)[0]:
-            print("tips")
-            pydirectinput.leftClick(tips_screen[0]["x"], tips_screen[0]["y"])
-
-        if checkColor(health_shop_screen, latest_frame)[0]:
-            print("health shop")
-            pydirectinput.leftClick(health_shop_screen[0]["x"], health_shop_screen[0]["y"])
-
-        if checkColor(ad_screen, latest_frame)[0]:
-            print("ad")
-            pydirectinput.leftClick(ad_screen[0]["x"], ad_screen[0]["y"])
-
-        if checkColor(daily_quests_screen, latest_frame)[0]:
-            print("daily quest")
-            pydirectinput.leftClick(daily_quests_screen[0]["x"], daily_quests_screen[0]["y"])
-        
-        time.sleep(1)
+    if playing:
+        playing = False
+        game_timer = finish_round(game_timer)
 
     running = False
 
@@ -731,7 +843,9 @@ def visionThread():
     frame_counter = 0
     frame_timer = time_ms()
     while bot_thread.is_alive():
-        if playing and not pausing:
+        if playing:
+            while (pausing):
+                time.sleep(1)
             frame_counter += 1
             new_frame_timer = time_ms()
             if (PRINT_FRAME_TIME):

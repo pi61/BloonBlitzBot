@@ -22,6 +22,10 @@ Edit behavior options in "main.py" if necessary, then run the main script
 python main.py
 ```
 
+With Bloon Blitz open in Google Play Games, press **Ctrl+I** to print the primary display resolution, the game monitor resolution, the game client-area resolution, and the game window's screen position and size. The window measurements use physical screen pixels.
+
+For a build that scales the existing game coordinates to the detected Google Play Games window, run `main_multires.py` instead. Keep Bloon Blitz open before starting it; the window geometry is detected during initialization and monitored once per second for movement or resolution changes. This build uses its own `imagehandler_multires.py` and leaves `main.py` unchanged.
+
 ## Limitations
 ### Platform
 This is only tested on Google Play Games emulator on Windows 11.
