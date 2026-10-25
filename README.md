@@ -37,3 +37,6 @@ Will probably update this to support more resolutions.
 ### Performance 
 Currently doesn't work very well with weak setups. If you have a strong healing build, this will likely beat all non-Ghost Bloon stages.
 A weak build (for example, gold farming build) will likely die to most stages.
+
+## Demo
+https://www.youtube.com/watch?v=83Tk1HMSi1k
