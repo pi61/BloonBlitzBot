@@ -22,19 +22,15 @@ Edit behavior options in "main.py" if necessary, then run the main script
 python main.py
 ```
 
-With Bloon Blitz open in Google Play Games, press **Ctrl+I** to print the primary display resolution, the game monitor resolution, the game client-area resolution, and the game window's screen position and size. The window measurements use physical screen pixels.
-
-For a build that scales the existing game coordinates to the detected Google Play Games window, run `main_multires.py` instead. Keep Bloon Blitz open before starting it; the window geometry is detected during initialization and monitored once per second for movement or resolution changes. This build uses its own `imagehandler_multires.py` and leaves `main.py` unchanged.
-
-Note that the multires version is currently fully experimental and once again only works for 1080p resolution. It correctly handles moving the game window around, but breaks when resolution of the window changes.
-
 ## Limitations
 ### Platform
 This is only tested on Google Play Games emulator on Windows 11.
 
-Everything related to screen coordinates are hard-coded, assuming screen resolution of 1920x1080 and centered emulator screen.
-Any difference in screen resolution and position will definitely break the bot.
-Will probably update this to support more resolutions.
+Everything related to screen coordinates are hard-coded, assuming screen resolution of 1920x1080 and centered emulator screen. Any difference in screen resolution and position will definitely break the bot.
+
+There is an experimental build that scales the existing game coordinates to the detected Google Play Games window. You can run it with  `main_multires.py`. Keep Bloon Blitz open before starting it; the window geometry is detected during initialization and monitored once per second for movement or resolution changes. This build uses its own `imagehandler_multires.py` and leaves `main.py` unchanged.
+
+Note that the multires version is currently fully experimental and once again only works for 1080p resolution. It correctly handles moving the game window around, but breaks when resolution of the window changes.
 
 ### Performance 
 Currently doesn't work very well with weak setups. If you have a strong healing build, this will likely beat all non-Ghost Bloon stages.
