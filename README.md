@@ -26,6 +26,8 @@ With Bloon Blitz open in Google Play Games, press **Ctrl+I** to print the primar
 
 For a build that scales the existing game coordinates to the detected Google Play Games window, run `main_multires.py` instead. Keep Bloon Blitz open before starting it; the window geometry is detected during initialization and monitored once per second for movement or resolution changes. This build uses its own `imagehandler_multires.py` and leaves `main.py` unchanged.
 
+Note that the multires version is currently fully experimental and once again only works for 1080p resolution. It correctly handles moving the game window around, but breaks when resolution of the window changes.
+
 ## Limitations
 ### Platform
 This is only tested on Google Play Games emulator on Windows 11.
