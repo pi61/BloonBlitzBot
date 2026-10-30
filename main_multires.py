@@ -19,7 +19,7 @@ pydirectinput.PAUSE = 0
 
 ################## OPTIONS ##############################
 # General options
-PRINT_FRAME_TIME = False        # Print the delay between subsequent processing ticks (frames)
+PRINT_FRAME_TIME = True        # Print the delay between subsequent processing ticks (frames)
                                 # A delay less than 300ms should be good enough
 
 # Collection behavior
@@ -855,31 +855,31 @@ def handle_menu_screens():
             click_screen_position((screen[0]["x"], screen[0]["y"]))
 
 
-def transition_to_menu(last_direction, game_timer, boss_action_timer):
+def transition_to_menu(last_direction, game_timer, boss_action_timer, last_boss_action):
     global playing, is_boss_fight
 
     playing = False
     is_boss_fight = False
     game_timer = finish_round(game_timer)
-    return BotState.MENU, last_direction, game_timer, boss_action_timer
+    return BotState.MENU, last_direction, game_timer, boss_action_timer, last_boss_action
 
 
-def handle_playing_state(last_direction, game_timer, boss_action_timer):
+def handle_playing_state(last_direction, game_timer, boss_action_timer, last_boss_action):
     global playing, is_boss_fight
 
     if checkColor(play_button, latest_frame)[0]:
-        return transition_to_menu(last_direction, game_timer, boss_action_timer)
+        return transition_to_menu(last_direction, game_timer, boss_action_timer, last_boss_action)
 
     if checkColor(win_screen, latest_frame)[0]:
         playing = False
         game_timer = finish_round(game_timer)
         handle_menu_screens()
-        return BotState.MENU, last_direction, game_timer, boss_action_timer
+        return BotState.MENU, last_direction, game_timer, boss_action_timer, last_boss_action
 
     if checkColor(upgrade_menu, latest_frame)[0]:
         print("upgrading")
         handle_upgrade()
-        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer, last_boss_action
 
     if (
         checkColor(boss_fight_screen, latest_frame)[0]
@@ -888,33 +888,34 @@ def handle_playing_state(last_direction, game_timer, boss_action_timer):
         print("boss fight")
         is_boss_fight = True
         boss_action_timer = time_ms()
-        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+        last_boss_action = None
+        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer, last_boss_action
 
     last_direction = handle_normal_play(last_direction)
-    return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+    return BotState.PLAYING, last_direction, game_timer, boss_action_timer, last_boss_action
 
 
-def handle_boss_fight_state(last_direction, game_timer, boss_action_timer):
+def handle_boss_fight_state(last_direction, game_timer, boss_action_timer, last_boss_action):
     global heart_location, playing, is_boss_fight
 
     if checkColor(play_button, latest_frame)[0]:
-        return transition_to_menu(last_direction, game_timer, boss_action_timer)
+        return transition_to_menu(last_direction, game_timer, boss_action_timer, last_boss_action)
 
     if checkColor(win_screen, latest_frame)[0]:
         playing = False
         game_timer = finish_round(game_timer)
         handle_menu_screens()
-        return BotState.MENU, last_direction, game_timer, boss_action_timer
+        return BotState.MENU, last_direction, game_timer, boss_action_timer, last_boss_action
 
     if checkColor(upgrade_menu, latest_frame)[0]:
         print("upgrading")
         handle_upgrade()
-        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+        return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer, last_boss_action
 
     if checkColor(mini_boss_victory_screen, latest_frame)[0]:
         print("miniboss killed")
         is_boss_fight = False
-        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer, last_boss_action
 
     if checkColor(boss_victory_screen, latest_frame)[0]:
         print("boss killed")
@@ -922,7 +923,7 @@ def handle_boss_fight_state(last_direction, game_timer, boss_action_timer):
         click_screen_position(
             (pause_button[0]["x"], pause_button[0]["y"])
         )
-        return BotState.PLAYING, last_direction, game_timer, boss_action_timer
+        return BotState.PLAYING, last_direction, game_timer, boss_action_timer, last_boss_action
 
     heart_center = game_objects["heart_center"]
     if heart_center is not None:
@@ -935,13 +936,21 @@ def handle_boss_fight_state(last_direction, game_timer, boss_action_timer):
         print(x, y)
         moveTo(heart_location, (x, y))
         boss_action_timer = time_ms()
-    elif time_ms() - boss_action_timer >= 1500:
+        if last_boss_action == "circle":
+            cycle = ['a','aw','w','wd','d','sd','s','as']
+            index = cycle.index(last_direction) if last_direction in cycle else -1
+            index = (index - 1 + len(cycle)) % len(cycle)
+            last_direction = cycle[index]
+        last_boss_action = "dodge"
+        
+    elif last_boss_action == "dodge" or time_ms() - boss_action_timer >= 1500:
         stopMovement()
         time.sleep(0.1)
         last_direction = moveCircle(last_direction)
         boss_action_timer = time_ms()
+        last_boss_action = "circle"
 
-    return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer
+    return BotState.BOSS_FIGHT, last_direction, game_timer, boss_action_timer, last_boss_action
 
 
 def bot_loop():
@@ -950,6 +959,7 @@ def bot_loop():
     last_direction = ''
     game_timer = time_ms()
     boss_action_timer = game_timer
+    last_boss_action = None
 
     while not stop_event.is_set():
         if pausing:
@@ -962,16 +972,18 @@ def bot_loop():
         if state is BotState.MENU:
             state = handle_menu_state()
         elif state is BotState.PLAYING:
-            state, last_direction, game_timer, boss_action_timer = handle_playing_state(
+            state, last_direction, game_timer, boss_action_timer, last_boss_action = handle_playing_state(
                 last_direction,
                 game_timer,
                 boss_action_timer,
+                last_boss_action,
             )
         else:
-            state, last_direction, game_timer, boss_action_timer = handle_boss_fight_state(
+            state, last_direction, game_timer, boss_action_timer, last_boss_action = handle_boss_fight_state(
                 last_direction,
                 game_timer,
                 boss_action_timer,
+                last_boss_action,
             )
 
         if state in (BotState.PLAYING, BotState.BOSS_FIGHT):
