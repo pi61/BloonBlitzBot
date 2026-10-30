@@ -749,6 +749,8 @@ def handle_upgrade():
     current_time = time_ms()
     (x1, y1, x2, y2), text = pickUpgrade(latest_frame)
     while text == "unknown" and time_ms() - current_time < 1000:
+        if not checkColor(upgrade_menu, latest_frame)[0]:
+            return
         (x1, y1, x2, y2), text = pickUpgrade(latest_frame)
     print("upgrade:" + text)
     screen_objects.append(
